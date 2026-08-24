@@ -1,0 +1,26 @@
+{
+  "name": "green-apostas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GREEN - analise esportiva com IA e montagem de bilhetes",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "icons": "node tools/gen-icons.js",
+    "assets": "capacitor-assets generate --android",
+    "android:add": "cap add android",
+    "android:sync": "cap sync android",
+    "android:open": "cap open android",
+    "android:apk": "cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.0"
+  }
+}

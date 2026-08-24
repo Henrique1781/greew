@@ -1,0 +1,17 @@
+# dependencias
+node_modules/
+
+# projeto Android gerado pelo Capacitor (o build na nuvem recria)
+android/
+
+# build / temporarios
+*.apk
+*.keystore
+*.jks
+.DS_Store
+Thumbs.db
+*.log
+
+# NUNCA versionar chaves: elas ficam salvas no aparelho, dentro do app
+chaves.txt
+.env
