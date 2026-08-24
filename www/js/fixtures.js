@@ -6,8 +6,6 @@
 (function (global) {
   'use strict';
 
-  var BASE = 'https://api.football-data.org/v4';
-
   /* ordem de exibicao: o que o usuario mais aposta primeiro */
   var PRIORIDADE = [
     'Campeonato Brasileiro Série A', 'Copa Libertadores', 'UEFA Champions League',
@@ -61,7 +59,7 @@
     if (!key) throw new Error('sem chave football-data');
 
     // pega 3 dias de UTC e filtra pelo dia local (jogo 21:30 no Brasil = dia seguinte em UTC)
-    var url = BASE + '/matches?dateFrom=' + somaDias(dataISO, -1) + '&dateTo=' + somaDias(dataISO, 2);
+    var url = Native.fdUrl('/matches?dateFrom=' + somaDias(dataISO, -1) + '&dateTo=' + somaDias(dataISO, 2));
     var json = await Native.getJSON(url, { 'X-Auth-Token': key });
     var lista = (json && json.matches) || [];
 
@@ -133,7 +131,7 @@
       }
     }
 
-    if (cfg.apiKey) {
+    if (Motor.temChave()) {
       try {
         if (onLog) onLog('Procurando os jogos com a IA...');
         var r2 = await viaIA(dataISO);
@@ -144,14 +142,14 @@
       }
     }
 
-    if (!cfg.fdKey && !cfg.apiKey) {
+    if (!cfg.fdKey && !Motor.temChave()) {
       throw new Error('Configure a chave da API em Ajustes para carregar os jogos.');
     }
     throw new Error(erros.join(' | ') || 'Não consegui carregar os jogos do dia.');
   }
 
   async function testarChave(key) {
-    var json = await Native.getJSON(BASE + '/competitions/BSA', { 'X-Auth-Token': key });
+    var json = await Native.getJSON(Native.fdUrl('/competitions/BSA'), { 'X-Auth-Token': key });
     return !!(json && json.name);
   }
 

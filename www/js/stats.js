@@ -6,7 +6,6 @@
 (function (global) {
   'use strict';
 
-  var BASE = 'https://api.football-data.org/v4';
   var INTERVALO = 6500;           // plano gratuito: 10 chamadas/minuto
   var ultimaChamada = 0;
   var cache = { recentes: null, tabelas: {}, h2h: {} };
@@ -21,7 +20,7 @@
     var falta = INTERVALO - (agora - ultimaChamada);
     if (falta > 0) await esperar(falta);
     ultimaChamada = Date.now();
-    return Native.getJSON(url, { 'X-Auth-Token': Store.state.cfg.fdKey });
+    return Native.getJSON(Native.fdUrl(url), { 'X-Auth-Token': Store.state.cfg.fdKey });
   }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -39,7 +38,7 @@
     for (var i = 0; i < tentativas.length; i++) {
       try {
         if (onLog) onLog('Baixando resultados dos últimos ' + tentativas[i] + ' dias...');
-        var j = await fila(BASE + '/matches?dateFrom=' + menos(tentativas[i]) +
+        var j = await fila('/matches?dateFrom=' + menos(tentativas[i]) +
           '&dateTo=' + menos(1) + '&status=FINISHED');
         var porTime = {};
         ((j && j.matches) || []).forEach(function (m) {
@@ -67,7 +66,7 @@
     if (cache.tabelas[code] !== undefined) return cache.tabelas[code];
     try {
       if (onLog) onLog('Classificação: ' + code + '...');
-      var j = await fila(BASE + '/competitions/' + code + '/standings');
+      var j = await fila('/competitions/' + code + '/standings');
       var geral = ((j && j.standings) || []).filter(function (s) { return s.type === 'TOTAL'; })[0];
       cache.tabelas[code] = (geral && geral.table) || null;
     } catch (_) {
@@ -90,7 +89,7 @@
     if (cache.h2h[fdId] !== undefined) return cache.h2h[fdId];
     try {
       if (onLog) onLog('Confronto direto...');
-      var j = await fila(BASE + '/matches/' + fdId + '/head2head?limit=8');
+      var j = await fila('/matches/' + fdId + '/head2head?limit=8');
       cache.h2h[fdId] = j || null;
     } catch (_) {
       cache.h2h[fdId] = null;

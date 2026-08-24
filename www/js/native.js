@@ -38,6 +38,19 @@
     return { status: r.status, data: dados, headers: r.headers };
   }
 
+  /**
+   * URL da API esportiva.
+   * A football-data.org so libera CORS para "http://localhost" (sem porta), entao
+   * no navegador a chamada direta e barrada. No app Android usamos HTTP nativo
+   * (sem CORS); no PC passamos pelo proxy do servidor local (tools/serve.js).
+   */
+  function fdUrl(caminho) {
+    var direto = 'https://api.football-data.org/v4' + caminho;
+    if (isNative()) return direto;
+    if (location.protocol === 'file:') return direto;   // vai falhar, mas a mensagem explica
+    return '/fd' + caminho;
+  }
+
   /** GET JSON: nativo quando der, senao fetch comum. */
   async function getJSON(url, headers) {
     if (isNative()) {
@@ -48,7 +61,16 @@
       }
       return r.data;
     }
-    var res = await fetch(url, { headers: headers || {} });
+    var res;
+    try {
+      res = await fetch(url, { headers: headers || {} });
+    } catch (e) {
+      if (url.indexOf('football-data.org') > 0) {
+        throw new Error('No PC a API esportiva só funciona pelo servidor local ' +
+          '(rode iniciar.bat e abra http://localhost:5173). No app Android funciona direto.');
+      }
+      throw e;
+    }
     var j = null;
     try { j = await res.json(); } catch (_) {}
     if (!res.ok) throw new Error((j && (j.message || j.error)) || ('HTTP ' + res.status));
@@ -86,6 +108,7 @@
     plugin: plugin,
     http: http,
     getJSON: getJSON,
+    fdUrl: fdUrl,
     setup: setup
   };
 })(window);
