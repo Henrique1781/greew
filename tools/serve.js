@@ -20,9 +20,12 @@ const MIME = {
 
 http.createServer((req, res) => {
   let rel = decodeURIComponent(req.url.split('?')[0]);
-  if (rel === '/') rel = '/index.html';
-  const file = path.join(ROOT, path.normalize(rel).replace(/^([/\\])+/, ''));
+  let file = path.join(ROOT, path.normalize(rel).replace(/^([/\\])+/, ''));
   if (!file.startsWith(ROOT)) { res.writeHead(403).end('403'); return; }
+  // raiz, barra dupla ou qualquer pasta -> index.html
+  try {
+    if (fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
+  } catch (_) { /* nao existe: cai no 404 abaixo */ }
   fs.readFile(file, (err, buf) => {
     if (err) { res.writeHead(404, { 'content-type': 'text/plain' }).end('404'); return; }
     res.writeHead(200, {
