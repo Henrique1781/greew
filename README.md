@@ -31,26 +31,31 @@ node tools/serve.js
 ```
 ou duplo clique em **`iniciar.bat`** → abre em `http://localhost:5173`.
 
-No PC a busca da grade oficial pode ser bloqueada pelo navegador (CORS); no celular, como app
-nativo, isso não acontece.
+> **Precisa ser por esse servidor.** A football-data.org responde sempre
+> `Access-Control-Allow-Origin: http://localhost` (sem porta), então o navegador bloqueia a
+> chamada direta. O `tools/serve.js` repassa em `/fd/*` e resolve — a chave vai no cabeçalho
+> vinda do app e não fica guardada no servidor. Abrir o `index.html` direto (file://) não funciona.
+> No app Android nada disso se aplica: o HTTP nativo ignora CORS.
 
 ## 3. Gerar o APK
 
 ### Na nuvem (recomendado — não precisa instalar nada)
 
-1. Crie um repositório no GitHub e suba esta pasta:
-   ```
-   git init
-   git add .
-   git commit -m "GREEN v1"
-   git branch -M main
-   git remote add origin https://github.com/SEU-USUARIO/green-apostas.git
-   git push -u origin main
-   ```
-2. No GitHub, aba **Actions** → o build **Gerar APK (Android)** roda sozinho (~5 min).
-3. Terminou: clique no build → **Artifacts** → baixe **GREEN-apk** → transfira o
-   `app-debug.apk` para o celular e instale (o Android vai pedir para permitir
-   "instalar de fontes desconhecidas").
+O repositório já está configurado: <https://github.com/Henrique1781/greew>
+
+A cada `git push` o build **Gerar APK (Android)** roda sozinho (~5 min):
+
+```
+git add .
+git commit -m "o que mudou"
+git push
+```
+
+Depois, no GitHub: aba **Actions** → clique no build mais recente → **Artifacts** →
+baixe **GREEN-apk** → passe o `app-debug.apk` para o celular e instale (o Android vai pedir
+para permitir "instalar de fontes desconhecidas").
+
+Dá para rodar o build sem alterar nada: **Actions** → *Gerar APK (Android)* → **Run workflow**.
 
 O `.gitignore` já impede que `node_modules/` e a pasta `android/` subam — o build da nuvem
 recria tudo do zero.
