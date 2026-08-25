@@ -44,6 +44,7 @@ a{color:var(--accent);text-decoration:none}
 .brand{display:flex;justify-content:center;align-items:center}
 .crest{width:30px;height:30px}
 .hbtn{background:none;border:0;color:var(--txt-2);display:flex;align-items:center;gap:4px;padding:8px 14px;font-size:13px}
+.hbtn svg{width:22px;height:22px;flex:0 0 auto}
 .hbtn.right{justify-self:end}
 .hbtn:active{opacity:.6}
 
@@ -145,6 +146,13 @@ a{color:var(--accent);text-decoration:none}
 .news{display:flex;gap:11px;padding:12px 13px;margin:0 12px 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);color:inherit;text-decoration:none}
 .news:active{opacity:.75}
 .news .thumb{width:84px;height:64px;flex:0 0 auto;border-radius:10px;object-fit:cover;background:var(--surface-2)}
+
+/* primeira noticia com a capa grande */
+.news.destaque{flex-direction:column;gap:0;padding:0;overflow:hidden}
+.news.destaque .capa{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2);display:block}
+.news.destaque .txt{padding:12px 13px 13px}
+.news.destaque .tit{font-size:16px;font-weight:700;line-height:1.25;-webkit-line-clamp:3}
+.news.destaque .res{font-size:12.5px;-webkit-line-clamp:3}
 .news .txt{flex:1;min-width:0}
 .news .meta{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .news .fonte{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
@@ -171,11 +179,12 @@ a{color:var(--accent);text-decoration:none}
   position:fixed;left:0;right:0;bottom:0;z-index:50;
   height:calc(var(--nav-h) + env(safe-area-inset-bottom));
   padding-bottom:env(safe-area-inset-bottom);
-  display:grid;grid-template-columns:repeat(5,1fr);
+  display:grid;grid-template-columns:repeat(6,1fr);
   background:rgba(6,7,8,.97);backdrop-filter:blur(12px);border-top:1px solid var(--line-soft);
 }
-.tab{position:relative;background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:9.5px;font-weight:600;letter-spacing:.02em}
-.tab svg{width:21px;height:21px}
+.tab{position:relative;background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:9px;font-weight:600;letter-spacing:0;padding:0 2px;overflow:hidden}
+.tab span:not(.badge){max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tab svg{width:20px;height:20px;flex:0 0 auto}
 .tab.on{color:var(--accent)}
 .tab .badge{position:absolute;top:9px;right:22%;background:var(--accent);color:#000;font-size:9px;font-weight:800;border-radius:999px;padding:1px 5px;line-height:1.3}
 

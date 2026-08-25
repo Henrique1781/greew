@@ -7,10 +7,10 @@
 
   var FONTES = [
     { id: 'ge', nome: 'ge.globo', url: 'https://pox.globo.com/rss/ge/futebol' },
-    { id: 'espn', nome: 'ESPN', url: 'https://www.espn.com.br/rss/futebol/' },
     { id: 'gazeta', nome: 'Gazeta Esportiva', url: 'https://www.gazetaesportiva.com/feed/' },
-    { id: 'uol', nome: 'UOL', url: 'https://rss.uol.com.br/feed/esporte.xml' },
-    { id: 'trivela', nome: 'Trivela', url: 'https://trivela.com.br/feed/' }
+    { id: 'torcedores', nome: 'Torcedores', url: 'https://www.torcedores.com/feed' },
+    { id: 'trivela', nome: 'Trivela', url: 'https://trivela.com.br/feed/' },
+    { id: 'uol', nome: 'UOL', url: 'https://rss.uol.com.br/feed/esporte.xml' }
   ];
 
   var cache = { itens: [], em: 0, erro: '' };
@@ -34,18 +34,38 @@
       .trim();
   }
 
-  function imagemDe(item, xml) {
-    var m = item.getElementsByTagName('media:content')[0] ||
-      item.getElementsByTagName('content')[0] ||
-      item.getElementsByTagName('enclosure')[0] ||
-      item.getElementsByTagName('media:thumbnail')[0];
-    if (m && m.getAttribute) {
-      var u = m.getAttribute('url');
-      if (u && /^https?:/.test(u)) return u;
+  function valida(u) {
+    if (!u || !/^https?:\/\//i.test(u)) return '';
+    if (!/\.(jpe?g|png|webp|avif)(\?|$)/i.test(u) && u.indexOf('glbimg') < 0 &&
+      u.indexOf('espncdn') < 0 && u.indexOf('/image') < 0) {
+      /* sem extensao conhecida: aceita mesmo assim, mas descarta icone/pixel */
+      if (/1x1|spacer|pixel|blank|logo\.|favicon/i.test(u)) return '';
     }
-    var desc = texto(item, 'description') + texto(item, 'encoded');
-    var img = /<img[^>]+src=["']([^"']+)["']/i.exec(desc);
-    return img ? img[1] : '';
+    return u;
+  }
+
+  /** procura a capa em todos os lugares que os portais costumam usar */
+  function imagemDe(item) {
+    var tags = ['media:content', 'media:thumbnail', 'enclosure', 'image', 'itunes:image'];
+    for (var i = 0; i < tags.length; i++) {
+      var nos = item.getElementsByTagName(tags[i]);
+      for (var k = 0; k < nos.length; k++) {
+        var n = nos[k];
+        if (!n.getAttribute) continue;
+        var u = valida(n.getAttribute('url') || n.getAttribute('href') || '');
+        if (u) return u;
+      }
+    }
+    /* dentro do texto: <img src="..."> na descricao ou no conteudo completo */
+    var corpo = texto(item, 'description') + ' ' +
+      texto(item, 'content:encoded') + ' ' + texto(item, 'encoded') + ' ' + texto(item, 'content');
+    var img = /<img[^>]+src=["']([^"']+)["']/i.exec(corpo);
+    if (img) {
+      var u2 = valida(img[1]);
+      if (u2) return u2;
+    }
+    var solta = /(https?:\/\/[^\s"'<>]+\.(?:jpe?g|png|webp))/i.exec(corpo);
+    return solta ? valida(solta[1]) : '';
   }
 
   function parseRSS(xmlStr, fonte) {
@@ -64,7 +84,7 @@
         titulo: titulo,
         resumo: resumo.slice(0, 240),
         link: String(link).trim(),
-        imagem: imagemDe(it, doc),
+        imagem: imagemDe(it),
         fonte: fonte.nome,
         fonteId: fonte.id,
         ts: data ? (new Date(data).getTime() || 0) : 0
@@ -100,6 +120,8 @@
     var vistos = {};
     var itens = todas
       .filter(relevante)
+      /* so entra noticia com capa: sem imagem o card fica feio e vazio */
+      .filter(function (n) { return !!n.imagem; })
       .filter(function (n) {
         var k = n.titulo.toLowerCase().slice(0, 60);
         if (vistos[k]) return false;

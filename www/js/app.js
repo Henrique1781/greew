@@ -229,12 +229,24 @@
     }
 
     lista.forEach(function (n, i) {
-      h += '<a class="news" href="' + esc(n.link) + '" target="_blank" rel="noopener">' +
-        (n.imagem ? '<img class="thumb" src="' + esc(n.imagem) + '" alt="" loading="lazy" onerror="this.remove()">' : '') +
-        '<div class="txt">' +
-        '<div class="meta"><span class="fonte">' + esc(n.fonte) + '</span>' +
+      var meta = '<div class="meta"><span class="fonte">' + esc(n.fonte) + '</span>' +
         (n.ts ? '<span class="quando">' + esc(News.quando(n.ts)) + '</span>' : '') +
-        '<span class="ext">' + ICONS.externo + '</span></div>' +
+        '<span class="ext">' + ICONS.externo + '</span></div>';
+
+      /* a primeira vira destaque, com a capa grande */
+      if (i === 0) {
+        h += '<a class="news destaque" href="' + esc(n.link) + '" target="_blank" rel="noopener">' +
+          '<img class="capa" src="' + esc(n.imagem) + '" alt="" decoding="async" onerror="this.parentNode.remove()">' +
+          '<div class="txt">' + meta +
+          '<div class="tit">' + esc(n.titulo) + '</div>' +
+          (n.resumo ? '<div class="res">' + esc(n.resumo.slice(0, 150)) + '</div>' : '') +
+          '</div></a>';
+        return;
+      }
+
+      h += '<a class="news" href="' + esc(n.link) + '" target="_blank" rel="noopener">' +
+        '<img class="thumb" src="' + esc(n.imagem) + '" alt="" loading="lazy" decoding="async" onerror="this.closest(\'.news\').remove()">' +
+        '<div class="txt">' + meta +
         '<div class="tit">' + esc(n.titulo) + '</div>' +
         (n.resumo ? '<div class="res">' + esc(n.resumo.slice(0, 130)) + '</div>' : '') +
         '</div></a>';
@@ -784,7 +796,8 @@
       ['noticias', 'Notícias', ICONS.news, 0],
       ['analise', 'Análise', ICONS.analise, Object.keys(S.analises).length],
       ['bilhetes', 'Bilhetes', ICONS.bilhetes, S.bilhetes.length],
-      ['placar', 'Placar', ICONS.placar, S.hist.filter(function (x) { return x.resultado === 'pend'; }).length]
+      ['placar', 'Placar', ICONS.placar, S.hist.filter(function (x) { return x.resultado === 'pend'; }).length],
+      ['ajustes', 'Ajustes', ICONS.ajustes, 0]
     ];
     document.getElementById('tabbar').innerHTML = abas.map(function (a) {
       var on = (atual === a[0]) || (atual === 'jogo' && a[0] === 'analise') || (atual === 'rodando' && a[0] === 'analise');
