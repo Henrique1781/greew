@@ -60,6 +60,11 @@
   }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
 
+  /* o app nao pode quebrar se a fonte de ao vivo nao carregar */
+  function liveDe(j) {
+    return (global.Live && Live.de) ? Live.de(j) : null;
+  }
+
   function vazio(msg, botao) {
     return '<div class="empty">' + ICONS.empty + '<div>' + msg + '</div>' +
       (botao ? '<div style="margin-top:16px">' + botao + '</div>' : '') + '</div>';
@@ -108,7 +113,7 @@
       h += vazio(jogos.length ? 'Nenhum jogo neste filtro.' : 'Nenhum jogo carregado para este dia.',
         '<button class="btn sm" data-act="atualizar">' + ICONS.refresh + ' Carregar jogos do dia</button>');
     } else {
-      var vivos = jogos.filter(function (x) { var l = Live.de(x); return l && l.aoVivo; }).length;
+      var vivos = jogos.filter(function (x) { var l = liveDe(x); return l && l.aoVivo; }).length;
       h += '<div class="listbar">' +
         '<span>' + lista.length + ' jogos' +
         (vivos ? ' · <b class="agora">' + vivos + ' ao vivo</b>' : '') + '</span>' +
@@ -154,7 +159,7 @@
 
   function matchRow(j) {
     var tem = !!S.analises[j.id];
-    var lv = global.Live ? Live.de(j) : null;
+    var lv = liveDe(j);
     var st = String(j.status || '').toUpperCase();
 
     var aoVivo = lv ? lv.aoVivo : (st === 'IN_PLAY' || st === 'PAUSED');
@@ -593,7 +598,7 @@
     document.getElementById('btnBack').hidden = (r.nome !== 'jogo' && r.nome !== 'ajustes');
 
     /* carrega as noticias na primeira vez que a aba abre */
-    if (r.nome === 'noticias' && !App.carregandoNews && !(News.cache.itens || []).length) {
+    if (r.nome === 'noticias' && global.News && !App.carregandoNews && !(News.cache.itens || []).length) {
       setTimeout(function () { carregarNoticias(false); }, 30);
     }
     if (r.nome === 'jogos') agendarLive();
@@ -766,7 +771,7 @@
     if (App.timerLive) { clearTimeout(App.timerLive); App.timerLive = null; }
     if (rota().nome !== 'jogos') return;
     if (document.hidden) return;
-    if (!Live.temAlgumAoVivo(Store.jogosDoDia(App.data))) return;
+    if (!global.Live || !Live.temAlgumAoVivo(Store.jogosDoDia(App.data))) return;
     App.timerLive = setTimeout(function () { atualizarLive(false); }, 120000);
   }
 
