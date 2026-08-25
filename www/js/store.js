@@ -48,7 +48,8 @@
       dsKey: '',              // chave DeepSeek
       dsModel: 'deepseek-v4-pro',
       apiKey: '',             // chave Anthropic (opcional)
-      fdKey: '',              // chave football-data.org (dados reais)
+      afKey: '',              // chave API-Football (grade, escalacao, probabilidade)
+      fdKey: '',              // chave football-data.org (fonte antiga, opcional)
       autoLoad: true,
       model: 'claude-opus-5',
       effort: 'high',
@@ -64,7 +65,7 @@
     bilhetes: [],     // bilhetes da ultima rodada
     memoria: [],      // {id,data,licao,mercado,origem}
     hist: [],         // {id,data,tipo,jogo,mercado,selecao,odd,resultado,motivo}
-    meta: { ultimaAnalise: null, dossie: '', obs: '', custo: null }
+    meta: { ultimaAnalise: null, dossie: '', obs: '', custo: null, afCota: null, afCache: null }
   };
 
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -134,9 +135,16 @@
         status: j.status || '',
         utc: j.utc || '',
         fdId: j.fdId || 0,
+        afId: j.afId || 0,
         idCasa: j.idCasa || 0,
         idFora: j.idFora || 0,
         comp: j.comp || '',
+        ligaId: j.ligaId || 0,
+        pais: j.pais || '',
+        regiao: j.regiao || '',
+        elapsed: j.elapsed || 0,
+        golsCasa: j.golsCasa === undefined ? null : j.golsCasa,
+        golsFora: j.golsFora === undefined ? null : j.golsFora,
         fonte: j.fonte || 'manual'
       };
       state.jogos.push(jogo);
@@ -181,6 +189,18 @@
             atual.idFora = j.idFora;
             atual.fdId = j.fdId;
             atual.comp = j.comp;
+          }
+          if (!atual.afId && j.afId) {
+            atual.afId = j.afId;
+            atual.ligaId = j.ligaId;
+            atual.pais = j.pais;
+            atual.regiao = j.regiao;
+            atual.liga = j.liga || atual.liga;
+          }
+          if (j.golsCasa !== undefined && j.golsCasa !== null) {
+            atual.golsCasa = j.golsCasa;
+            atual.golsFora = j.golsFora;
+            atual.elapsed = j.elapsed || atual.elapsed;
           }
           return;
         }

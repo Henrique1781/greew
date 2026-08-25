@@ -5,8 +5,10 @@ carregados**, você marca os que interessam, toca em **PRONTO**, e ele entrega a
 e os 3 bilhetes do desafio 5 → 100.
 
 - **Motor de IA:** DeepSeek (`deepseek-v4-pro`), com Claude como alternativa.
-- **Dados:** football-data.org — grade do dia, escudos, classificação, últimos jogos com placares
-  e confronto direto. São números reais, não memória de modelo.
+- **Dados:** API-Football — grade do dia (Brasil, Europa e Arábia Saudita), escudos, escalação,
+  estatísticas, probabilidade, confronto direto e desfalques com motivo (lesão, suspensão, dúvida).
+- **Placar ao vivo:** fonte separada, gratuita e sem cota, para não gastar as 100 consultas/dia.
+- **Notícias:** ge.globo, ESPN, Gazeta Esportiva, UOL e Trivela por RSS.
 - **Aprendizado:** você marca GREEN/RED, o app faz o post-mortem, vira lição e entra como critério
   obrigatório na próxima análise.
 
@@ -17,12 +19,19 @@ e os 3 bilhetes do desafio 5 → 100.
 | Chave | Onde pegar | Para quê |
 |---|---|---|
 | **DeepSeek** | platform.deepseek.com | O raciocínio. ~R$ 0,10 por rodada analisada |
-| **football-data.org** | football-data.org/client/register | Grátis. Os jogos do dia e as estatísticas reais |
+| **API-Football** | dashboard.api-football.com | Grátis, 100 consultas/dia. Jogos, escalação, estatística, probabilidade e desfalques |
+
+O placar ao vivo e as notícias **não precisam de chave** e não gastam cota.
 
 As duas ficam salvas **só no aparelho** e vão apenas para o serviço de cada uma.
 
-> Sem a chave do football-data o app ainda funciona, mas cai para uma grade aproximada e a IA
-> analisa sem os números reais — a qualidade despenca. Pegue essa chave, é grátis e leva 2 minutos.
+> Sem a chave da API-Football o app cai para uma grade aproximada e a IA analisa sem os números
+> reais — a qualidade despenca. Ela é grátis e leva 2 minutos.
+
+**Onde vão as 100 consultas por dia:** 1 para a grade do dia (com cache, uma vez só),
+2 por jogo analisado (probabilidade + desfalques) e 1 cada vez que você abre Escalação,
+Probabilidade ou Estatísticas de um jogo novo. Analisar 6 jogos gasta ~13. O contador fica
+visível em Ajustes e zera às 21h (00:00 UTC).
 
 ## 2. Rodar no PC (para testar rápido)
 
@@ -90,17 +99,17 @@ entra no prompt — o agente aprende de quais mercados fugir no seu caso.
 ## 5. Como a análise funciona por dentro
 
 ```
-1. football-data.org  ->  forma dos últimos 50 dias com placares, tabela, H2H
-2. DeepSeek           ->  dossiê analítico em cima desses números + suas lições
-3. DeepSeek (json)    ->  estrutura para as telas e monta os 3 bilhetes
-4. o app              ->  valida: 1 seleção por jogo em cada bilhete, odd recalculada
+1. API-Football  ->  probabilidade, forma real, H2H, médias de gols e desfalques com motivo
+2. DeepSeek      ->  dossiê analítico em cima desses números + suas lições dos erros passados
+3. DeepSeek json ->  estrutura para as telas e monta os 3 bilhetes
+4. o app         ->  valida: 1 seleção por jogo em cada bilhete, odd recalculada
 ```
 
 Duas regras de honestidade que ficaram no código:
 
-- **Desfalque e escalação a IA não inventa.** A API do DeepSeek não tem busca na web; nesses
-  campos o app escreve "sem dado confiável" e derruba a confiança do palpite. Se quiser esses
-  dados, troque o motor para Claude em Ajustes e ligue a pesquisa web.
+- **A IA não inventa desfalque nem escalação.** Ela só recebe o que a API-Football entregou.
+  Quando um dado não existe (a escalação, por exemplo, só sai ~40 min antes do apito), o app
+  escreve "sem dado confiável" e derruba a confiança do palpite em vez de chutar.
 - **Bilhete não repete jogo.** Duas seleções do mesmo jogo a casa recusa (e "Dupla Chance 1X"
   com "Empate Anula" é a mesma aposta duas vezes) — o app corta e recalcula a odd.
 
@@ -112,8 +121,11 @@ www/                     o app em si
   css/styles.css         design preto/âmbar, mobile-first
   js/store.js            estado, memória de lições, estatísticas (fica no aparelho)
   js/motor.js            camada de IA: DeepSeek e Claude atrás da mesma interface
-  js/stats.js            dados reais da API esportiva (com limite de 10 req/min respeitado)
-  js/fixtures.js         grade do dia (API esportiva -> IA como reserva)
+  js/apifootball.js      API-Football: grade, escalação, probabilidade, desfalques + cota e cache
+  js/live.js             placar ao vivo (fonte gratuita separada, sem cota)
+  js/news.js             notícias por RSS dos portais
+  js/stats.js            monta o dossiê de números reais para a IA
+  js/fixtures.js         grade do dia (API-Football -> reservas)
   js/api.js              prompts, pipeline e normalização das respostas
   js/native.js           ponte com o Android (HTTP nativo, status bar, botão voltar)
   js/app.js              telas e ações

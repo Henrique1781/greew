@@ -120,6 +120,17 @@
     var cfg = Store.state.cfg;
     var erros = [];
 
+    /* fonte principal: API-Football (tem Brasil, Europa e Arabia, com escudos e ids) */
+    if (global.AF && AF.temChave()) {
+      try {
+        var r0 = await AF.jogosDoDia(dataISO, onLog);
+        if (r0.length) return { jogos: r0, fonte: 'api-football' };
+        erros.push('nenhum jogo dos campeonatos escolhidos neste dia');
+      } catch (e0) {
+        erros.push('API-Football: ' + e0.message);
+      }
+    }
+
     if (cfg.fdKey) {
       try {
         if (onLog) onLog('Buscando grade oficial...');
@@ -142,8 +153,8 @@
       }
     }
 
-    if (!cfg.fdKey && !Motor.temChave()) {
-      throw new Error('Configure a chave da API em Ajustes para carregar os jogos.');
+    if (!cfg.afKey && !cfg.fdKey && !Motor.temChave()) {
+      throw new Error('Configure a chave da API-Football em Ajustes para carregar os jogos.');
     }
     throw new Error(erros.join(' | ') || 'Não consegui carregar os jogos do dia.');
   }

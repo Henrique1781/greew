@@ -168,7 +168,53 @@
    * Monta o dossie de dados reais dos jogos escolhidos.
    * Retorna '' quando nao ha chave da API esportiva.
    */
+  /* ---------- fonte principal: API-Football ---------- */
+  async function dossieAF(jogos, onLog) {
+    var blocos = [];
+    for (var i = 0; i < jogos.length; i++) {
+      var j = jogos[i];
+      if (!j.afId) continue;
+
+      /* 2 chamadas por jogo: previsao (traz forma + H2H junto) e desfalques */
+      if (AF.restam() < 2) {
+        if (onLog) onLog('Cota diária no fim — os jogos restantes vão sem dados extras.');
+        break;
+      }
+      if (onLog) onLog(j.mandante + ' x ' + j.visitante + ' (restam ' + AF.restam() + ' consultas)');
+
+      var partes = ['### ' + j.mandante + ' x ' + j.visitante +
+        ' (' + j.liga + ', ' + (j.hora || 's/ horario') + ')'];
+
+      try {
+        partes.push(AF.textoPrevisao(await AF.previsao(j.afId)));
+      } catch (e) {
+        partes.push('previsao indisponivel: ' + e.message);
+      }
+      try {
+        partes.push(AF.textoDesfalques(await AF.desfalques(j.afId)));
+      } catch (_) {
+        partes.push('desfalques indisponiveis');
+      }
+
+      /* escalacao so entra se ja tiver sido publicada (nao gasta chamada se ja veio no cache) */
+      var esc = null;
+      try { esc = await AF.escalacao(j.afId); } catch (_) {}
+      if (esc && esc.length) partes.push(AF.textoEscalacao(esc));
+
+      blocos.push(partes.filter(Boolean).join(String.fromCharCode(10)));
+    }
+    return blocos.join(String.fromCharCode(10, 10));
+  }
+
   async function dossie(jogos, onLog) {
+    /* prioridade: API-Football (mais completa). football-data fica de reserva. */
+    if (global.AF && AF.temChave()) {
+      var comId = jogos.filter(function (j) { return j.afId; });
+      if (comId.length) {
+        var t = await dossieAF(comId, onLog);
+        if (t) return t;
+      }
+    }
     if (!Store.state.cfg.fdKey) return '';
     var comIds = jogos.filter(function (j) { return j.idCasa && j.idFora; });
     if (!comIds.length) return '';

@@ -20,6 +20,7 @@
     carregandoNews: false,
     regiao: 'todas',
     timerLive: null,
+    baixandoDet: null,
     logs: [],
     parcial: ''
   };
@@ -146,6 +147,7 @@
 
   /* Brasil / Europa / Arabia — usa o pais quando a fonte manda, senao o nome da liga */
   function regiaoDe(j) {
+    if (j.regiao) return j.regiao;
     var p = String(j.pais || '').toLowerCase();
     var l = String(j.liga || '').toLowerCase();
     if (p.indexOf('brazil') >= 0 || p.indexOf('brasil') >= 0 ||
@@ -278,29 +280,68 @@
   function viewJogo(id) {
     var a = S.analises[id];
     var j = S.jogos.find(function (x) { return x.id === id; });
-    if (!a) {
-      return '<div class="hero"><h1>' + esc(j ? j.mandante + ' x ' + j.visitante : 'Jogo') + '</h1>' +
-        '<p>' + esc(j ? j.liga : '') + '</p></div>' +
-        vazio('Este jogo ainda não foi analisado.',
-          '<button class="btn sm" data-act="analisar-um" data-id="' + id + '">Analisar agora</button>');
-    }
+    if (!a && !j) return vazio('Jogo não encontrado.');
+
+    var nomeCasa = a ? a.mandante : j.mandante;
+    var nomeFora = a ? a.visitante : j.visitante;
+    var lv = j ? liveDe(j) : null;
+    var placar = lv && lv.casa !== null ? lv.casa + ' - ' + lv.fora
+      : (j && j.golsCasa !== null && j.golsCasa !== undefined ? j.golsCasa + ' - ' + j.golsFora : '');
 
     var h = '<div style="text-align:center;padding:16px 12px 6px">' +
-      '<div class="tiny muted cond" style="margin-bottom:12px">' + esc(a.liga) + '</div>' +
+      '<div class="tiny muted cond" style="margin-bottom:12px">' + esc((a && a.liga) || (j && j.liga) || '') + '</div>' +
       '<div style="display:flex;align-items:center;justify-content:center;gap:14px">' +
-      '<div style="flex:1;text-align:center">' + UI.crestBig(a.mandante, j && j.crestCasa) +
-      '<div style="font-size:13px;font-weight:700">' + esc(a.mandante) + '</div></div>' +
-      '<div style="min-width:78px"><div style="font-size:20px;font-weight:800;color:var(--accent)">' + esc(a.hora || '--:--') + '</div>' +
-      '<div class="tiny muted">' + (App.data === Store.hoje() ? 'hoje' : esc(App.data)) + '</div></div>' +
-      '<div style="flex:1;text-align:center">' + UI.crestBig(a.visitante, j && j.crestFora) +
-      '<div style="font-size:13px;font-weight:700">' + esc(a.visitante) + '</div></div>' +
+      '<div style="flex:1;text-align:center">' + UI.crestBig(nomeCasa, j && j.crestCasa) +
+      '<div style="font-size:13px;font-weight:700">' + esc(nomeCasa) + '</div></div>' +
+      '<div style="min-width:82px">' +
+      (placar
+        ? '<div style="font-size:24px;font-weight:800">' + esc(placar) + '</div>' +
+        '<div class="tiny ' + (lv && lv.aoVivo ? 'agora' : 'muted') + '">' + esc((lv && lv.minuto) || 'encerrado') + '</div>'
+        : '<div style="font-size:20px;font-weight:800;color:var(--accent)">' + esc((a && a.hora) || (j && j.hora) || '--:--') + '</div>' +
+        '<div class="tiny muted">' + (App.data === Store.hoje() ? 'hoje' : esc(App.data)) + '</div>') +
+      '</div>' +
+      '<div style="flex:1;text-align:center">' + UI.crestBig(nomeFora, j && j.crestFora) +
+      '<div style="font-size:13px;font-weight:700">' + esc(nomeFora) + '</div></div>' +
       '</div></div>';
 
-    var abas = [['resumo', 'Resumo'], ['forma', 'Forma'], ['h2h', 'H2H'], ['desfalques', 'Desfalques'],
-      ['metricas', 'Métricas'], ['palpites', 'Palpites']];
-    h += '<div class="tabs">' + abas.map(function (t) {
-      return '<button class="chip' + (App.aba === t[0] ? ' on' : '') + '" data-act="aba" data-id="' + t[0] + '">' + t[1] + '</button>';
-    }).join('') + '</div>';
+    /* abas de dados reais (API-Football) + abas da analise da IA */
+    var abas = [];
+    if (j && j.afId && global.AF && AF.temChave()) {
+      abas.push(['escalacao', 'Escalação'], ['probabilidade', 'Probabilidade'], ['estatisticas', 'Estatísticas']);
+    }
+    if (a) {
+      abas = abas.concat([['resumo', 'Resumo'], ['forma', 'Forma'], ['h2h', 'H2H'],
+        ['desfalques', 'Desfalques'], ['metricas', 'Métricas'], ['palpites', 'Palpites']]);
+    }
+    if (!abas.length) {
+      return h + vazio('Este jogo ainda não foi analisado.',
+        '<button class="btn sm" data-act="analisar-um" data-id="' + id + '">Analisar agora</button>');
+    }
+    if (abas.map(function (x) { return x[0]; }).indexOf(App.aba) < 0) App.aba = abas[0][0];
+
+    /* --- abas alimentadas pela API-Football --- */
+    if (App.aba === 'escalacao' || App.aba === 'probabilidade' || App.aba === 'estatisticas') {
+      var campo = App.aba === 'escalacao' ? 'esc' : App.aba === 'probabilidade' ? 'prev' : 'stat';
+      var dado = AF.cacheDe(j.afId, campo);
+      h += abasHtml(abas);
+      if (App.baixandoDet === campo) {
+        h += '<div class="card"><div style="display:flex;align-items:center;gap:9px;font-weight:600">' +
+          '<span class="spin"></span>Buscando na API-Football...</div></div>';
+      } else if (dado === null) {
+        h += '<div class="card"><p class="tiny muted">Ainda não busquei este dado. ' +
+          'Cada consulta usa 1 das 100 do dia (restam ' + AF.restam() + ').</p>' +
+          '<div style="margin-top:10px"><button class="btn sm" data-act="det" data-id="' + id + ':' + campo + '">' +
+          'Buscar agora</button></div></div>';
+      } else if (App.aba === 'escalacao') {
+        h += htmlEscalacao(dado, id);
+      } else if (App.aba === 'probabilidade') {
+        h += htmlProbabilidade(dado);
+      } else {
+        h += htmlEstatisticas(dado);
+      }
+      return h;
+    }
+    h += abasHtml(abas);
 
     if (App.aba === 'resumo') {
       h += '<div class="card"><h4>Veredito</h4><p>' + esc(a.veredito) + '</p>' +
@@ -349,6 +390,128 @@
 
   function kv(k, v) {
     return '<div class="kv"><span class="k">' + esc(k) + '</span><span class="v">' + esc(v) + '</span></div>';
+  }
+
+  function abasHtml(abas) {
+    return '<div class="tabs">' + abas.map(function (t) {
+      return '<button class="chip' + (App.aba === t[0] ? ' on' : '') + '" data-act="aba" data-id="' + t[0] + '">' + t[1] + '</button>';
+    }).join('') + '</div>';
+  }
+
+  /* ---------- escalacao ---------- */
+  function htmlEscalacao(times, jogoId) {
+    if (!times || !times.length) {
+      return '<div class="card"><h4>Escalação</h4>' +
+        '<p class="tiny">Ainda não divulgada. Os times costumam sair cerca de 40 minutos antes do apito.</p>' +
+        '<div style="margin-top:10px"><button class="btn ghost sm" data-act="det" data-id="' + jogoId + ':esc">' +
+        'Tentar de novo</button></div></div>';
+    }
+    return times.map(function (t) {
+      var xi = t.startXI || [];
+      var banco = t.substitutes || [];
+      return '<div class="card"><h4>' + esc(t.team && t.team.name) +
+        (t.formation ? ' · ' + esc(t.formation) : '') + '</h4>' +
+        (t.coach && t.coach.name ? '<p class="tiny muted" style="margin-bottom:10px">Técnico: ' + esc(t.coach.name) + '</p>' : '') +
+        '<div class="xi">' + xi.map(function (p) {
+          return '<div class="jog"><span class="cam">' + esc(p.player.number || '-') + '</span>' +
+            '<span class="pn">' + esc(p.player.name) + '</span>' +
+            '<span class="pos">' + esc(p.player.pos || '') + '</span></div>';
+        }).join('') + '</div>' +
+        (banco.length ? '<p class="tiny muted" style="margin-top:10px">Banco: ' +
+          esc(banco.map(function (p) { return p.player.name; }).slice(0, 12).join(', ')) + '</p>' : '') +
+        '</div>';
+    }).join('');
+  }
+
+  /* ---------- probabilidade ---------- */
+  function htmlProbabilidade(p) {
+    if (!p) return '<div class="card"><p class="tiny muted">Sem previsão para este jogo.</p></div>';
+    var pr = p.predictions || {};
+    var pc = pr.percent || {};
+    var casa = (p.teams && p.teams.home) || {};
+    var fora = (p.teams && p.teams.away) || {};
+
+    function barra(rot, valor, cor) {
+      var n = parseInt(String(valor || '0'), 10) || 0;
+      return '<div class="prob"><span class="rot">' + esc(rot) + '</span>' +
+        '<div class="bar"><i style="width:' + n + '%;background:' + cor + '"></i></div>' +
+        '<span class="pct">' + n + '%</span></div>';
+    }
+
+    var h = '<div class="card"><h4>Chance de cada resultado</h4>' +
+      barra(casa.name || 'Casa', pc.home, 'var(--green)') +
+      barra('Empate', pc.draw, 'var(--muted)') +
+      barra(fora.name || 'Fora', pc.away, 'var(--blue)') +
+      (pr.advice ? '<p class="tiny" style="margin-top:10px">Sugestão da fonte: <b>' + esc(pr.advice) + '</b></p>' : '') +
+      '<p class="tiny muted" style="margin-top:6px">Isso é o modelo da API-Football, não a análise da IA. ' +
+      'Use como mais um dado, nunca sozinho.</p></div>';
+
+    if (pr.under_over || pr.goals) {
+      h += '<div class="card"><h4>Gols</h4>' +
+        (pr.under_over ? kv('Linha sugerida', AF.linhaGols(pr.under_over)) : '') +
+        (pr.goals ? kv('Expectativa mandante', pr.goals.home) + kv('Expectativa visitante', pr.goals.away) : '') +
+        '</div>';
+    }
+
+    [[casa, 'Mandante'], [fora, 'Visitante']].forEach(function (par) {
+      var t = par[0];
+      if (!t || !t.league) return;
+      var lg = t.league;
+      var g = lg.goals || {};
+      h += '<div class="card"><h4>' + esc(t.name) + ' · ' + par[1] + '</h4>' +
+        kv('Últimos jogos', AF.formaLegivel(lg.form)) +
+        kv('Gols feitos (média)', (g.for && g.for.average && g.for.average.total) || '-') +
+        kv('Gols sofridos (média)', (g.against && g.against.average && g.against.average.total) || '-') +
+        kv('Jogos sem sofrer gol', (lg.clean_sheet && lg.clean_sheet.total) !== undefined ? lg.clean_sheet.total : '-') +
+        '</div>';
+    });
+
+    var h2h = p.h2h || [];
+    if (h2h.length) {
+      h += '<div class="card"><h4>Confronto direto</h4>' +
+        h2h.slice(0, 8).map(function (m) {
+          return '<div class="kv"><span class="k">' + esc(String(m.fixture.date).slice(0, 10)) + '</span>' +
+            '<span class="v">' + esc(m.teams.home.name) + ' ' +
+            (m.goals.home === null ? '-' : m.goals.home) + 'x' +
+            (m.goals.away === null ? '-' : m.goals.away) + ' ' + esc(m.teams.away.name) + '</span></div>';
+        }).join('') + '</div>';
+    }
+    return h;
+  }
+
+  /* ---------- estatisticas da partida ---------- */
+  var TRAD = {
+    'Shots on Goal': 'Chutes no gol', 'Shots off Goal': 'Chutes para fora',
+    'Total Shots': 'Finalizações', 'Blocked Shots': 'Chutes bloqueados',
+    'Shots insidebox': 'Chutes na área', 'Shots outsidebox': 'Chutes de fora',
+    Fouls: 'Faltas', 'Corner Kicks': 'Escanteios', Offsides: 'Impedimentos',
+    'Ball Possession': 'Posse de bola', 'Yellow Cards': 'Cartões amarelos',
+    'Red Cards': 'Cartões vermelhos', 'Goalkeeper Saves': 'Defesas do goleiro',
+    'Total passes': 'Passes', 'Passes accurate': 'Passes certos', 'Passes %': 'Precisão de passe',
+    expected_goals: 'Gols esperados (xG)'
+  };
+
+  function htmlEstatisticas(times) {
+    if (!times || !times.length) {
+      return '<div class="card"><p class="tiny muted">As estatísticas aparecem depois que a bola rola.</p></div>';
+    }
+    var casa = times[0] || {}, fora = times[1] || {};
+    var mapa = {};
+    (casa.statistics || []).forEach(function (s) { mapa[s.type] = { c: s.value, f: null }; });
+    (fora.statistics || []).forEach(function (s) {
+      mapa[s.type] = mapa[s.type] || { c: null, f: null };
+      mapa[s.type].f = s.value;
+    });
+
+    var h = '<div class="card"><h4>' + esc(casa.team && casa.team.name) + ' x ' + esc(fora.team && fora.team.name) + '</h4>';
+    Object.keys(mapa).forEach(function (k) {
+      var v = mapa[k];
+      if (v.c === null && v.f === null) return;
+      h += '<div class="stat"><span class="c">' + esc(v.c === null ? '-' : v.c) + '</span>' +
+        '<span class="n">' + esc(TRAD[k] || k) + '</span>' +
+        '<span class="c">' + esc(v.f === null ? '-' : v.f) + '</span></div>';
+    });
+    return h + '</div>';
   }
 
   /* ================= tela: BILHETES ================= */
@@ -457,15 +620,23 @@
 
     var ds = c.provider !== 'claude';
 
-    h += '<div class="sect-title">Jogos do dia<span class="line"></span></div>';
-    h += '<div class="field"><label>Chave football-data.org (grátis)</label>' +
-      '<input class="input" type="password" placeholder="cole aqui a chave" data-cfg="fdKey" value="' + esc(c.fdKey) + '">' +
-      '<p class="tiny muted" style="margin-top:6px">É ela que traz a grade do dia, escudos, classificação, ' +
-      'últimos jogos e confronto direto — os números reais que alimentam a análise. ' +
-      'Grátis em football-data.org/client/register</p>' +
+    h += '<div class="sect-title">Jogos, escalação e estatísticas<span class="line"></span></div>';
+    h += '<div class="field"><label>Chave API-Football</label>' +
+      '<input class="input" type="password" placeholder="cole aqui a chave" data-cfg="afKey" value="' + esc(c.afKey) + '">' +
+      '<p class="tiny muted" style="margin-top:6px">Traz a grade do dia (Brasil, Europa e Arábia), escudos, ' +
+      'escalação, estatísticas, probabilidade e desfalques. Grátis em dashboard.api-football.com</p>' +
+      (global.AF && AF.temChave()
+        ? '<div class="cota"><span>Consultas hoje</span><b>' + AF.cota().n + ' de 100</b>' +
+        '<div class="bar"><i style="width:' + Math.min(100, AF.cota().n) + '%"></i></div></div>'
+        : '') +
       '<div style="margin-top:8px;display:flex;gap:8px">' +
-      '<button class="btn ghost sm" data-act="testar-fd">Testar chave</button>' +
+      '<button class="btn ghost sm" data-act="testar-af">Testar chave</button>' +
       '<button class="btn ghost sm" data-act="atualizar">Buscar jogos agora</button></div></div>';
+
+    h += '<div class="field"><label>Chave football-data.org (reserva, opcional)</label>' +
+      '<input class="input" type="password" placeholder="opcional" data-cfg="fdKey" value="' + esc(c.fdKey) + '">' +
+      '<p class="tiny muted" style="margin-top:6px">Usada só se a API-Football falhar.</p>' +
+      '<div style="margin-top:8px"><button class="btn ghost sm" data-act="testar-fd">Testar chave</button></div></div>';
     h += '<div class="switch"><div><div class="tx">Carregar jogos ao abrir</div>' +
       '<div class="sub">A grade do dia aparece sozinha</div></div>' +
       '<button class="sw' + (c.autoLoad ? ' on' : '') + '" data-act="toggle" data-id="autoLoad"><i></i></button></div>';
@@ -736,6 +907,25 @@
     }
   }
 
+  /* ---------- dados da partida sob demanda (cada um custa 1 consulta) ---------- */
+  async function buscarDetalhe(jogoId, campo) {
+    var j = S.jogos.find(function (x) { return x.id === jogoId; });
+    if (!j || !j.afId || !global.AF) return;
+    if (App.baixandoDet) return;
+    App.baixandoDet = campo;
+    render();
+    try {
+      if (campo === 'esc') await AF.escalacao(j.afId);
+      else if (campo === 'stat') await AF.estatisticas(j.afId);
+      else await AF.previsao(j.afId);
+    } catch (e) {
+      UI.toast(e.message, 'err');
+    } finally {
+      App.baixandoDet = null;
+      render();
+    }
+  }
+
   /* ---------- noticias ---------- */
   async function carregarNoticias(forcar) {
     if (App.carregandoNews) return;
@@ -921,11 +1111,28 @@
     if (act === 'fnews') { App.fonteNoticia = id; render(); return; }
     if (act === 'atualizar-news') { carregarNoticias(true); return; }
     if (act === 'live') { atualizarLive(true); return; }
+    if (act === 'det') {
+      var pd = id.split(':');
+      buscarDetalhe(pd[0], pd[1]);
+      return;
+    }
     if (act === 'todos-sel') {
       var doDia = Store.jogosDoDia(App.data);
       var marcar = doDia.some(function (x) { return !x.sel; });
       doDia.forEach(function (x) { x.sel = marcar; });
       Store.save(); render();
+      return;
+    }
+    if (act === 'testar-af') {
+      if (!S.cfg.afKey) { UI.toast('Cole a chave primeiro.', 'err'); return; }
+      UI.toast('Testando...');
+      AF.jogosDoDia(App.data)
+        .then(function (js) {
+          UI.toast('Chave OK — ' + js.length + ' jogos hoje nos campeonatos escolhidos', 'ok');
+          if (js.length) { Store.mergeJogos(js, App.data); Store.save(); }
+          render();
+        })
+        .catch(function (err) { UI.toast(err.message, 'err'); });
       return;
     }
     if (act === 'testar-fd') {
