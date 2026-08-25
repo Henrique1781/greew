@@ -43,7 +43,66 @@ function proxyFootballData(req, res) {
   r.end();
 }
 
+/* Proxy geral: /px?u=<url>  (so para os hosts da lista)
+   Serve para o placar ao vivo e para os RSS de noticias, que tambem nao mandam CORS. */
+const HOSTS = [
+  'api.sofascore.com',
+  'v3.football.api-sports.io',
+  'pox.globo.com',
+  'ge.globo.com',
+  'www.espn.com.br',
+  'rss.uol.com.br',
+  'www.gazetaesportiva.com',
+  'trivela.com.br'
+];
+
+function proxyGeral(req, res) {
+  let alvo;
+  try {
+    alvo = new URL(new URL(req.url, 'http://x').searchParams.get('u') || '');
+  } catch (_) {
+    res.writeHead(400).end('url invalida');
+    return;
+  }
+  if (HOSTS.indexOf(alvo.hostname) < 0) {
+    res.writeHead(403).end('host nao permitido');
+    return;
+  }
+  const cab = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+    accept: '*/*'
+  };
+  if (req.headers['x-apisports-key']) cab['x-apisports-key'] = req.headers['x-apisports-key'];
+
+  const r = https.request(alvo.href, { method: 'GET', headers: cab }, (up) => {
+    res.writeHead(up.statusCode || 502, {
+      'content-type': up.headers['content-type'] || 'application/json',
+      'access-control-allow-origin': '*'
+    });
+    up.pipe(res);
+  });
+  r.on('error', (e) => {
+    res.writeHead(502, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ message: 'proxy falhou: ' + e.message }));
+  });
+  r.end();
+}
+
 http.createServer((req, res) => {
+  if (req.url.indexOf('/px?') === 0) {
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': 'x-apisports-key',
+        'access-control-allow-methods': 'GET,OPTIONS'
+      });
+      res.end();
+      return;
+    }
+    proxyGeral(req, res);
+    return;
+  }
+
   if (req.url.indexOf('/fd/') === 0) {
     if (req.method === 'OPTIONS') {
       res.writeHead(204, {

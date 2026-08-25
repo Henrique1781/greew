@@ -51,6 +51,28 @@
     return '/fd' + caminho;
   }
 
+  /**
+   * URL de qualquer fonte externa (SofaScore, RSS, API-Football).
+   * No Android vai direto (HTTP nativo ignora CORS); no navegador passa
+   * pelo proxy do servidor local, porque essas fontes nao mandam CORS.
+   */
+  function externa(url) {
+    if (isNative() || location.protocol === 'file:') return url;
+    return '/px?u=' + encodeURIComponent(url);
+  }
+
+  /** GET de texto puro (usado nos RSS, que sao XML). */
+  async function getTexto(url, headers) {
+    if (isNative()) {
+      var r = await http({ method: 'GET', url: url, headers: headers, responseType: 'text' });
+      if (r.status < 200 || r.status >= 300) throw new Error('HTTP ' + r.status);
+      return typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
+    }
+    var res = await fetch(externa(url), { headers: headers || {} });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.text();
+  }
+
   /** GET JSON: nativo quando der, senao fetch comum. */
   async function getJSON(url, headers) {
     if (isNative()) {
@@ -108,6 +130,8 @@
     plugin: plugin,
     http: http,
     getJSON: getJSON,
+    getTexto: getTexto,
+    externa: externa,
     fdUrl: fdUrl,
     setup: setup
   };

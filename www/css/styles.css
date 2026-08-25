@@ -104,6 +104,27 @@ a{color:var(--accent);text-decoration:none}
 .skbar.w40{width:40%}.skbar.w45{width:45%}.skbar.w50{width:50%}.skbar.w60{width:60%}.skbar.w65{width:65%}.skbar.w70{width:70%}
 @keyframes sk{from{background-position:200% 0}to{background-position:-200% 0}}
 
+/* placar ao vivo */
+.match.live{background:linear-gradient(90deg,rgba(49,208,122,.05),transparent 60%)}
+.trow .gol{font-size:15px;font-weight:800;min-width:16px;text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.trow .gol.win{color:var(--txt)}
+.match .tag.fim{color:var(--muted)}
+.listbar .agora{color:var(--green);font-weight:700}
+.listbar .agora::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:middle;animation:pulso 1.4s ease-in-out infinite}
+@keyframes pulso{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* noticias */
+.news{display:flex;gap:11px;padding:12px 13px;margin:0 12px 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);color:inherit;text-decoration:none}
+.news:active{opacity:.75}
+.news .thumb{width:84px;height:64px;flex:0 0 auto;border-radius:10px;object-fit:cover;background:var(--surface-2)}
+.news .txt{flex:1;min-width:0}
+.news .meta{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.news .fonte{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent)}
+.news .quando{font-size:10.5px;color:var(--muted)}
+.news .ext{margin-left:auto;color:var(--muted);display:flex}
+.news .tit{font-size:13.5px;font-weight:600;line-height:1.32;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.news .res{font-size:11.8px;color:var(--muted);margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
 .match .meta{display:flex;flex-direction:column;justify-content:center;align-items:flex-end;gap:6px;min-width:52px}
 .match .hora{font-size:12px;font-weight:600;color:var(--txt-2)}
 .match .tag{font-size:10.5px;font-weight:700;color:var(--muted)}

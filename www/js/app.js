@@ -16,6 +16,10 @@
     inicio: 0,
     timer: null,
     fonteJogos: '',
+    fonteNoticia: 'todas',
+    carregandoNews: false,
+    regiao: 'todas',
+    timerLive: null,
     logs: [],
     parcial: ''
   };
@@ -67,13 +71,22 @@
     var jogos = Store.jogosDoDia(App.data);
     var favs = jogos.filter(function (j) { return j.fav; }).length;
     var sel = jogos.filter(function (j) { return j.sel; }).length;
+    var conta = function (r) {
+      return jogos.filter(function (j) { return regiaoDe(j) === r; }).length;
+    };
+
     var lista = App.filtro === 'fav' ? jogos.filter(function (j) { return j.fav; })
       : App.filtro === 'sel' ? jogos.filter(function (j) { return j.sel; })
-        : jogos;
+        : (App.filtro === 'br' || App.filtro === 'eu' || App.filtro === 'ar')
+          ? jogos.filter(function (j) { return regiaoDe(j) === App.filtro; })
+          : jogos;
 
     var h = '';
     h += '<div class="chips">' +
       chip('todos', 'Todos', jogos.length) +
+      chip('br', 'Brasil', conta('br')) +
+      chip('eu', 'Europa', conta('eu')) +
+      chip('ar', 'Arábia', conta('ar')) +
       chip('fav', 'Favoritos', favs) +
       chip('sel', 'Selecionados', sel) +
       '<button class="chip" data-act="atualizar">' + ICONS.refresh + ' Atualizar</button>' +
@@ -95,9 +108,10 @@
       h += vazio(jogos.length ? 'Nenhum jogo neste filtro.' : 'Nenhum jogo carregado para este dia.',
         '<button class="btn sm" data-act="atualizar">' + ICONS.refresh + ' Carregar jogos do dia</button>');
     } else {
+      var vivos = jogos.filter(function (x) { var l = Live.de(x); return l && l.aoVivo; }).length;
       h += '<div class="listbar">' +
-        '<span>' + lista.length + ' jogos' + (App.fonteJogos === 'ia' ? ' · via IA' :
-          App.fonteJogos === 'football-data' ? ' · grade oficial' : '') + '</span>' +
+        '<span>' + lista.length + ' jogos' +
+        (vivos ? ' · <b class="agora">' + vivos + ' ao vivo</b>' : '') + '</span>' +
         '<button data-act="todos-sel">' + (sel === jogos.length && sel ? 'Limpar seleção' : 'Marcar todos') + '</button>' +
         '</div>';
       var ligas = {};
@@ -125,25 +139,100 @@
       esc(label) + '<span class="n">' + n + '</span></button>';
   }
 
+  /* Brasil / Europa / Arabia — usa o pais quando a fonte manda, senao o nome da liga */
+  function regiaoDe(j) {
+    var p = String(j.pais || '').toLowerCase();
+    var l = String(j.liga || '').toLowerCase();
+    if (p.indexOf('brazil') >= 0 || p.indexOf('brasil') >= 0 ||
+      /brasileir|copa do brasil|s[ée]rie [abcd]|paulista|carioca|ga[uú]cho|mineiro|nordest/.test(l)) return 'br';
+    if (p.indexOf('saudi') >= 0 || /saudi|ar[áa]bia/.test(l)) return 'ar';
+    if (/premier league|la liga|primera divisi|bundesliga|serie a|ligue 1|eredivisie|primeira liga|championship|champions|europa league|conference league|super lig|liga portugal|belgian|scottish/.test(l)) return 'eu';
+    if (/england|spain|italy|germany|france|portugal|netherlands|belgium|scotland|turkey|europe/.test(p)) return 'eu';
+    if (/libertadores|sul-americana|sudamericana/.test(l)) return 'br';
+    return 'outros';
+  }
+
   function matchRow(j) {
     var tem = !!S.analises[j.id];
+    var lv = global.Live ? Live.de(j) : null;
     var st = String(j.status || '').toUpperCase();
-    var tag = tem ? 'ANALISADO'
-      : st === 'FINISHED' ? 'ENCERRADO'
-        : (st === 'IN_PLAY' || st === 'PAUSED') ? 'AO VIVO'
-          : 'PENDENTE';
-    var cls = tem ? ' ok' : (st === 'IN_PLAY' || st === 'PAUSED') ? ' vivo' : '';
-    return '<div class="match">' +
+
+    var aoVivo = lv ? lv.aoVivo : (st === 'IN_PLAY' || st === 'PAUSED');
+    var temPlacar = lv && lv.casa !== null && lv.fora !== null;
+    var encerrado = !aoVivo && (st === 'FINISHED' || (lv && /FIM/.test(lv.minuto || '')));
+
+    var tag = aoVivo ? (lv && lv.minuto ? lv.minuto : 'AO VIVO')
+      : encerrado ? 'FIM'
+        : tem ? 'ANALISADO' : 'PENDENTE';
+    var cls = aoVivo ? ' vivo' : encerrado ? ' fim' : tem ? ' ok' : '';
+
+    /* quem está ganhando fica em destaque, igual aos apps de placar */
+    var venceCasa = temPlacar && lv.casa > lv.fora;
+    var venceFora = temPlacar && lv.fora > lv.casa;
+
+    function gol(v, vencendo) {
+      if (!temPlacar) return '';
+      return '<b class="gol' + (vencendo ? ' win' : '') + '">' + v + '</b>';
+    }
+
+    return '<div class="match' + (aoVivo ? ' live' : '') + '">' +
       '<button class="pickbox' + (j.sel ? ' on' : '') + '" data-act="sel" data-id="' + j.id + '">' + ICONS.check + '</button>' +
       '<div class="teams" data-act="abrir" data-id="' + j.id + '">' +
-      '<div class="trow">' + UI.crest(j.mandante, j.crestCasa) + '<span class="nm">' + esc(j.mandante) + '</span>' +
-      '<button class="star' + (j.fav ? ' on' : '') + '" data-act="fav" data-id="' + j.id + '">' + ICONS.star + '</button></div>' +
-      '<div class="trow">' + UI.crest(j.visitante, j.crestFora) + '<span class="nm">' + esc(j.visitante) + '</span></div>' +
+      '<div class="trow' + (temPlacar && !venceCasa && venceFora ? ' dim' : '') + '">' +
+      UI.crest(j.mandante, j.crestCasa) + '<span class="nm">' + esc(j.mandante) + '</span>' +
+      '<button class="star' + (j.fav ? ' on' : '') + '" data-act="fav" data-id="' + j.id + '">' + ICONS.star + '</button>' +
+      gol(lv && lv.casa, venceCasa) + '</div>' +
+      '<div class="trow' + (temPlacar && !venceFora && venceCasa ? ' dim' : '') + '">' +
+      UI.crest(j.visitante, j.crestFora) + '<span class="nm">' + esc(j.visitante) + '</span>' +
+      gol(lv && lv.fora, venceFora) + '</div>' +
       '</div>' +
       '<div class="meta">' +
       '<span class="hora">' + esc(j.hora || '--:--') + '</span>' +
-      '<span class="tag' + cls + '">' + tag + '</span>' +
+      '<span class="tag' + cls + '">' + esc(tag) + '</span>' +
       '</div></div>';
+  }
+
+  /* ================= tela: NOTICIAS ================= */
+
+  function viewNoticias() {
+    var h = '<div class="hero"><h1>Notícias</h1><p>ge.globo · ESPN · Gazeta · UOL · Trivela</p></div>';
+
+    h += '<div class="chips">' +
+      '<button class="chip' + (App.fonteNoticia === 'todas' ? ' on' : '') + '" data-act="fnews" data-id="todas">Todas</button>' +
+      News.FONTES.map(function (f) {
+        return '<button class="chip' + (App.fonteNoticia === f.id ? ' on' : '') +
+          '" data-act="fnews" data-id="' + f.id + '">' + esc(f.nome) + '</button>';
+      }).join('') +
+      '<button class="chip" data-act="atualizar-news">' + ICONS.refresh + ' Atualizar</button>' +
+      '</div>';
+
+    if (App.carregandoNews) {
+      h += '<div class="card"><div class="ttl" style="display:flex;align-items:center;gap:9px;font-weight:600">' +
+        '<span class="spin"></span>Buscando notícias...</div></div>';
+      return h;
+    }
+
+    var lista = News.cache.itens || [];
+    if (App.fonteNoticia !== 'todas') {
+      lista = lista.filter(function (n) { return n.fonteId === App.fonteNoticia; });
+    }
+    if (!lista.length) {
+      return h + vazio('Nenhuma notícia carregada.',
+        '<button class="btn sm" data-act="atualizar-news">' + ICONS.refresh + ' Buscar notícias</button>');
+    }
+
+    lista.forEach(function (n, i) {
+      h += '<a class="news" href="' + esc(n.link) + '" target="_blank" rel="noopener">' +
+        (n.imagem ? '<img class="thumb" src="' + esc(n.imagem) + '" alt="" loading="lazy" onerror="this.remove()">' : '') +
+        '<div class="txt">' +
+        '<div class="meta"><span class="fonte">' + esc(n.fonte) + '</span>' +
+        (n.ts ? '<span class="quando">' + esc(News.quando(n.ts)) + '</span>' : '') +
+        '<span class="ext">' + ICONS.externo + '</span></div>' +
+        '<div class="tit">' + esc(n.titulo) + '</div>' +
+        (n.resumo ? '<div class="res">' + esc(n.resumo.slice(0, 130)) + '</div>' : '') +
+        '</div></a>';
+    });
+    return h;
   }
 
   /* ================= tela: ANALISE ================= */
@@ -492,6 +581,7 @@
     var view = document.getElementById('view');
     var html;
     if (r.nome === 'jogos') html = viewJogos();
+    else if (r.nome === 'noticias') html = viewNoticias();
     else if (r.nome === 'analise') html = viewAnalise();
     else if (r.nome === 'jogo') html = viewJogo(r.arg);
     else if (r.nome === 'bilhetes') html = viewBilhetes();
@@ -500,7 +590,13 @@
     else if (r.nome === 'rodando') html = viewRodando();
     else html = viewJogos();
     view.innerHTML = html;
-    document.getElementById('btnBack').hidden = (r.nome !== 'jogo');
+    document.getElementById('btnBack').hidden = (r.nome !== 'jogo' && r.nome !== 'ajustes');
+
+    /* carrega as noticias na primeira vez que a aba abre */
+    if (r.nome === 'noticias' && !App.carregandoNews && !(News.cache.itens || []).length) {
+      setTimeout(function () { carregarNoticias(false); }, 30);
+    }
+    if (r.nome === 'jogos') agendarLive();
     document.getElementById('brand').style.visibility = 'visible';
     renderTabs(r.nome);
     if (r.nome !== 'rodando') view.scrollTop = 0;
@@ -509,10 +605,10 @@
   function renderTabs(atual) {
     var abas = [
       ['jogos', 'Jogos', ICONS.jogos, Store.jogosDoDia(App.data).length],
+      ['noticias', 'Notícias', ICONS.news, 0],
       ['analise', 'Análise', ICONS.analise, Object.keys(S.analises).length],
       ['bilhetes', 'Bilhetes', ICONS.bilhetes, S.bilhetes.length],
-      ['placar', 'Placar', ICONS.placar, S.hist.filter(function (x) { return x.resultado === 'pend'; }).length],
-      ['ajustes', 'Ajustes', ICONS.ajustes, 0]
+      ['placar', 'Placar', ICONS.placar, S.hist.filter(function (x) { return x.resultado === 'pend'; }).length]
     ];
     document.getElementById('tabbar').innerHTML = abas.map(function (a) {
       var on = (atual === a[0]) || (atual === 'jogo' && a[0] === 'analise') || (atual === 'rodando' && a[0] === 'analise');
@@ -633,6 +729,45 @@
       App.carregando = false;
       render();
     }
+  }
+
+  /* ---------- noticias ---------- */
+  async function carregarNoticias(forcar) {
+    if (App.carregandoNews) return;
+    App.carregandoNews = true;
+    if (rota().nome === 'noticias') render();
+    try {
+      var itens = await News.buscar(forcar);
+      if (forcar) UI.toast(itens.length + ' notícias', 'ok');
+    } catch (e) {
+      UI.toast(e.message, 'err');
+    } finally {
+      App.carregandoNews = false;
+      render();
+    }
+  }
+
+  /* ---------- placar ao vivo (fonte propria, nao gasta cota da API de dados) ---------- */
+  async function atualizarLive(avisar) {
+    if (!global.Live) return;
+    var n = await Live.atualizar();
+    if (avisar) {
+      var info = Live.info();
+      UI.toast(info.erro ? 'Ao vivo indisponível: ' + info.erro : n + ' jogos ao vivo agora',
+        info.erro ? 'err' : 'ok');
+    }
+    if (rota().nome === 'jogos') render();
+    agendarLive();
+  }
+
+  /* Modo economico: so continua atualizando enquanto houver jogo rolando
+     e a tela de jogos estiver aberta. */
+  function agendarLive() {
+    if (App.timerLive) { clearTimeout(App.timerLive); App.timerLive = null; }
+    if (rota().nome !== 'jogos') return;
+    if (document.hidden) return;
+    if (!Live.temAlgumAoVivo(Store.jogosDoDia(App.data))) return;
+    App.timerLive = setTimeout(function () { atualizarLive(false); }, 120000);
   }
 
   function sheetAdd() {
@@ -778,6 +913,9 @@
     }
     if (act === 'add') { sheetAdd(); return; }
     if (act === 'atualizar') { UI.closeSheet(); atualizarJogos(App.data, false); return; }
+    if (act === 'fnews') { App.fonteNoticia = id; render(); return; }
+    if (act === 'atualizar-news') { carregarNoticias(true); return; }
+    if (act === 'live') { atualizarLive(true); return; }
     if (act === 'todos-sel') {
       var doDia = Store.jogosDoDia(App.data);
       var marcar = doDia.some(function (x) { return !x.sel; });
@@ -917,10 +1055,11 @@
     });
 
     document.getElementById('btnBack').addEventListener('click', function () { history.back(); });
+    document.getElementById('btnHeaderAction').innerHTML = ICONS.ajustes;
+    document.getElementById('btnHeaderAction').setAttribute('aria-label', 'Ajustes');
     document.getElementById('btnHeaderAction').addEventListener('click', function () {
-      var r = rota().nome;
-      if (r === 'jogos') sheetAdd();
-      else nav('#/jogos');
+      if (rota().nome === 'ajustes') nav('#/jogos');
+      else nav('#/ajustes');
     });
 
     global.addEventListener('hashchange', render);
@@ -952,6 +1091,18 @@
     if (S.cfg.autoLoad && !Store.jogosDoDia(App.data).length) {
       setTimeout(function () { atualizarJogos(App.data, true); }, 400);
     }
+
+    /* placar ao vivo: uma busca ao abrir, depois so enquanto tiver jogo rolando */
+    setTimeout(function () { atualizarLive(false); }, 900);
+
+    /* ao voltar para o app, atualiza; ao sair, para de gastar rede */
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) {
+        if (App.timerLive) { clearTimeout(App.timerLive); App.timerLive = null; }
+      } else if (rota().nome === 'jogos') {
+        atualizarLive(false);
+      }
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
