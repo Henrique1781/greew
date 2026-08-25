@@ -21,6 +21,7 @@
     regiao: 'todas',
     timerLive: null,
     baixandoDet: null,
+    verChave: {},
     logs: [],
     parcial: ''
   };
@@ -633,22 +634,20 @@
     var ds = c.provider !== 'claude';
 
     h += '<div class="sect-title">Jogos, escalação e estatísticas<span class="line"></span></div>';
-    h += '<div class="field"><label>Chave API-Football</label>' +
-      '<input class="input" type="password" placeholder="cole aqui a chave" data-cfg="afKey" value="' + esc(c.afKey) + '">' +
-      '<p class="tiny muted" style="margin-top:6px">Traz a grade do dia (Brasil, Europa e Arábia), escudos, ' +
-      'escalação, estatísticas, probabilidade e desfalques. Grátis em dashboard.api-football.com</p>' +
-      (global.AF && AF.temChave()
-        ? '<div class="cota"><span>Consultas hoje</span><b>' + AF.cota().n + ' de 100</b>' +
-        '<div class="bar"><i style="width:' + Math.min(100, AF.cota().n) + '%"></i></div></div>'
-        : '') +
-      '<div style="margin-top:8px;display:flex;gap:8px">' +
+    h += campoChave('Chave API-Football', 'afKey', 'toque e cole aqui',
+      'Traz a grade do dia (Brasil, Europa e Arábia), escudos, escalação, estatísticas, ' +
+      'probabilidade e desfalques. Grátis em dashboard.api-football.com');
+    h += (global.AF && AF.temChave()
+      ? '<div class="field"><div class="cota"><span>Consultas hoje</span><b>' + AF.cota().n + ' de 100</b>' +
+      '<div class="bar"><i style="width:' + Math.min(100, AF.cota().n) + '%"></i></div></div></div>'
+      : '');
+    h += '<div class="field"><div style="display:flex;gap:8px">' +
       '<button class="btn ghost sm" data-act="testar-af">Testar chave</button>' +
       '<button class="btn ghost sm" data-act="atualizar">Buscar jogos agora</button></div></div>';
 
-    h += '<div class="field"><label>Chave football-data.org (reserva, opcional)</label>' +
-      '<input class="input" type="password" placeholder="opcional" data-cfg="fdKey" value="' + esc(c.fdKey) + '">' +
-      '<p class="tiny muted" style="margin-top:6px">Usada só se a API-Football falhar.</p>' +
-      '<div style="margin-top:8px"><button class="btn ghost sm" data-act="testar-fd">Testar chave</button></div></div>';
+    h += campoChave('Chave football-data.org (reserva, opcional)', 'fdKey', 'opcional',
+      'Usada só se a API-Football falhar.');
+    h += '<div class="field"><button class="btn ghost sm" data-act="testar-fd">Testar chave</button></div>';
     h += '<div class="switch"><div><div class="tx">Carregar jogos ao abrir</div>' +
       '<div class="sub">A grade do dia aparece sozinha</div></div>' +
       '<button class="sw' + (c.autoLoad ? ' on' : '') + '" data-act="toggle" data-id="autoLoad"><i></i></button></div>';
@@ -660,10 +659,8 @@
       '</div></div>';
 
     if (ds) {
-      h += '<div class="field"><label>Chave DeepSeek</label>' +
-        '<input class="input" type="password" placeholder="sk-..." data-cfg="dsKey" value="' + esc(c.dsKey) + '">' +
-        '<p class="tiny muted" style="margin-top:6px">Crie em platform.deepseek.com. ' +
-        'Bem mais barato que o Claude: a análise de uma rodada custa centavos.</p></div>';
+      h += campoChave('Chave DeepSeek', 'dsKey', 'toque e cole aqui',
+        'Crie em platform.deepseek.com. Bem mais barato que o Claude: a análise de uma rodada custa centavos.');
       h += '<div class="field"><div class="row2">' +
         '<div><label>Modelo</label><select class="input" data-cfg="dsModel">' +
         opt('deepseek-v4-pro', 'V4 Pro (recomendado)', c.dsModel) +
@@ -674,13 +671,11 @@
         '</select></div></div></div>';
       h += '<div class="card" style="border-color:var(--accent-dim)"><h4>Como o DeepSeek pega os dados</h4>' +
         '<p class="tiny">A API do DeepSeek não tem busca na web. Quem traz os números é a chave ' +
-        'football-data.org acima: forma recente com placares, classificação e confronto direto vão prontos ' +
-        'para a IA. O que fica de fora é desfalque/escalação de última hora — nesses campos o app escreve ' +
-        '"sem dado confiável" em vez de inventar. Se quiser esses dados também, use o motor Claude ' +
-        'com pesquisa web ligada.</p></div>';
+        'da API-Football acima: probabilidade, forma real, médias de gols, confronto direto e ' +
+        'desfalques com motivo vão prontos para a IA. O que ela não recebe, ela não inventa — ' +
+        'escreve "sem dado confiável" e derruba a confiança do palpite.</p></div>';
     } else {
-      h += '<div class="field"><label>Chave Anthropic</label>' +
-        '<input class="input" type="password" placeholder="sk-ant-..." data-cfg="apiKey" value="' + esc(c.apiKey) + '"></div>';
+      h += campoChave('Chave Anthropic', 'apiKey', 'sk-ant-...', '');
       h += '<div class="field"><div class="row2">' +
         '<div><label>Modelo</label><select class="input" data-cfg="model">' +
         opt('claude-opus-5', 'Opus 5', c.model) +
@@ -736,6 +731,22 @@
 
   function opt(v, lb, atual) {
     return '<option value="' + v + '"' + (atual === v ? ' selected' : '') + '>' + lb + '</option>';
+  }
+
+  /** Campo de chave: com botao de ver, confirmacao visual e colar direto. */
+  function campoChave(rotulo, k, dica, ajuda) {
+    var visivel = App.verChave[k];
+    return '<div class="field"><label>' + esc(rotulo) + '</label>' +
+      '<div class="chave">' +
+      '<input class="input" type="' + (visivel ? 'text' : 'password') +
+      '" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" ' +
+      'placeholder="' + esc(dica) + '" data-cfg="' + k + '" value="' + esc(S.cfg[k] || '') + '">' +
+      '<button class="olho" data-act="ver-chave" data-id="' + k + '">' +
+      (visivel ? 'ocultar' : 'ver') + '</button>' +
+      '</div>' +
+      '<div class="stchave" id="st-' + k + '">' + statusChave(k) + '</div>' +
+      (ajuda ? '<p class="tiny muted" style="margin-top:6px">' + ajuda + '</p>' : '') +
+      '</div>';
   }
 
   /* ================= tela: RODANDO ================= */
@@ -1120,7 +1131,12 @@
       return;
     }
     if (act === 'add') { sheetAdd(); return; }
-    if (act === 'atualizar') { UI.closeSheet(); atualizarJogos(App.data, false); return; }
+    if (act === 'atualizar') {
+      UI.closeSheet();
+      if (rota().nome === 'ajustes') lerCampo('afKey');
+      atualizarJogos(App.data, false);
+      return;
+    }
     if (act === 'fnews') { App.fonteNoticia = id; render(); return; }
     if (act === 'atualizar-news') { carregarNoticias(true); return; }
     if (act === 'live') { atualizarLive(true); return; }
@@ -1137,7 +1153,7 @@
       return;
     }
     if (act === 'testar-af') {
-      if (!S.cfg.afKey) { UI.toast('Cole a chave primeiro.', 'err'); return; }
+      if (!lerCampo('afKey')) { UI.toast('Cole a chave da API-Football no campo acima.', 'err'); return; }
       UI.toast('Testando...');
       AF.jogosDoDia(App.data)
         .then(function (js) {
@@ -1149,8 +1165,8 @@
       return;
     }
     if (act === 'testar-fd') {
-      var k = S.cfg.fdKey;
-      if (!k) { UI.toast('Cole a chave primeiro.', 'err'); return; }
+      var k = lerCampo('fdKey');
+      if (!k) { UI.toast('Cole a chave no campo acima.', 'err'); return; }
       UI.toast('Testando...');
       Fixtures.testarChave(k)
         .then(function () { UI.toast('Chave válida! Grade oficial liberada.', 'ok'); })
@@ -1201,6 +1217,7 @@
     }
     if (act === 'aprender') { aprender(); return; }
     if (act === 'toggle') { S.cfg[id] = !S.cfg[id]; Store.save(); render(); return; }
+    if (act === 'ver-chave') { App.verChave[id] = !App.verChave[id]; render(); return; }
     if (act === 'motor') {
       S.cfg.provider = id;
       if (id === 'deepseek' && (S.cfg.effort === 'xhigh' || S.cfg.effort === 'max')) S.cfg.effort = 'high';
@@ -1209,6 +1226,8 @@
       return;
     }
     if (act === 'testar') {
+      lerCampo(S.cfg.provider === 'claude' ? 'apiKey' : 'dsKey');
+      if (!Motor.temChave()) { UI.toast('Cole a chave do motor de IA no campo acima.', 'err'); return; }
       UI.toast('Testando...');
       API.testarChave().then(function () { UI.toast('Conexão OK', 'ok'); })
         .catch(function (err) { UI.toast(err.message, 'err'); });
@@ -1239,6 +1258,17 @@
     }
   }
 
+  /* pega o que esta no campo agora, salva e devolve - assim o Testar nunca
+     usa uma chave desatualizada, mesmo que algum evento tenha escapado */
+  function lerCampo(k) {
+    var el = document.querySelector('[data-cfg="' + k + '"]');
+    if (el && typeof el.value === 'string') {
+      var v = el.value.trim();
+      if (v !== S.cfg[k]) { S.cfg[k] = v; Store.save(); }
+    }
+    return S.cfg[k] || '';
+  }
+
   function val(id) {
     var el = document.getElementById(id);
     return el ? el.value.trim() : '';
@@ -1260,8 +1290,20 @@
     var k = el.getAttribute('data-cfg');
     var v = el.value;
     if (k === 'stake' || k === 'alvo') v = Number(v) || (k === 'stake' ? 5 : 20);
+    else if (typeof v === 'string') v = v.trim();   // colar traz espaco/quebra de linha junto
     S.cfg[k] = v;
     Store.save();
+
+    /* avisa na hora que a chave entrou, sem redesenhar a tela (perderia o foco) */
+    var st = document.getElementById('st-' + k);
+    if (st) st.innerHTML = statusChave(k);
+  }
+
+  function statusChave(k) {
+    var v = String(S.cfg[k] || '');
+    if (!v) return '<span class="vazio">campo vazio</span>';
+    return '<span class="cheio">' + ICONS.check + ' salva neste aparelho · ' +
+      v.length + ' caracteres · final ' + esc(v.slice(-4)) + '</span>';
   }
 
   /* ================= boot ================= */
@@ -1275,8 +1317,11 @@
 
     document.addEventListener('click', onClick);
     document.addEventListener('change', onChange);
-    document.addEventListener('input', function (e) {
-      if (e.target.matches('textarea[data-cfg]')) onChange(e);
+    /* salva a cada tecla e a cada colagem: esperar o campo perder o foco
+       fazia a chave se perder quando o usuario colava e tocava direto em Testar */
+    document.addEventListener('input', onChange);
+    document.addEventListener('paste', function (e) {
+      setTimeout(function () { onChange(e); }, 0);
     });
 
     document.getElementById('btnBack').addEventListener('click', function () { history.back(); });
